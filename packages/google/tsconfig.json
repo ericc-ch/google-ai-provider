@@ -12,15 +12,5 @@
     "tsup.config.ts",
     "internal.d.ts"
   ],
-  "references": [
-    {
-      "path": "../provider"
-    },
-    {
-      "path": "../provider-utils"
-    },
-    {
-      "path": "../test-server"
-    }
-  ]
+  "references": []
 }
