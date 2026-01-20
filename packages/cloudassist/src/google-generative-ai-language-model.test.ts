@@ -284,19 +284,19 @@ describe('urlContextMetadata', () => {
 
 describe('doGenerate', () => {
   const TEST_URL_GEMINI_PRO =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const TEST_URL_GEMINI_2_0_PRO =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-pro:generateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const TEST_URL_GEMINI_2_0_FLASH_EXP =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const TEST_URL_GEMINI_1_0_PRO =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const TEST_URL_GEMINI_1_5_FLASH =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const server = createTestServer({
     [TEST_URL_GEMINI_PRO]: {},
@@ -305,6 +305,10 @@ describe('doGenerate', () => {
     [TEST_URL_GEMINI_1_0_PRO]: {},
     [TEST_URL_GEMINI_1_5_FLASH]: {},
   });
+  const getRequestBody = async (index = 0) => {
+    const body = await server.calls[index].requestBodyJson;
+    return body?.request ?? body;
+  };
 
   const prepareJsonResponse = ({
     content = '',
@@ -332,25 +336,27 @@ describe('doGenerate', () => {
       | typeof TEST_URL_GEMINI_1_0_PRO
       | typeof TEST_URL_GEMINI_1_5_FLASH;
   }) => {
-    server.urls[url].response = {
-      type: 'json-value',
-      headers,
-      body: {
-        candidates: [
-          {
-            content: {
-              parts: [{ text: content }],
-              role: 'model',
-            },
-            finishReason: 'STOP',
-            index: 0,
-            safetyRatings: SAFETY_RATINGS,
-            ...(groundingMetadata && { groundingMetadata }),
+    const responseBody = {
+      candidates: [
+        {
+          content: {
+            parts: [{ text: content }],
+            role: 'model',
           },
-        ],
-        promptFeedback: { safetyRatings: SAFETY_RATINGS },
-        usageMetadata: usage,
-      },
+          finishReason: 'STOP',
+          index: 0,
+          safetyRatings: SAFETY_RATINGS,
+          ...(groundingMetadata && { groundingMetadata }),
+        },
+      ],
+      promptFeedback: { safetyRatings: SAFETY_RATINGS },
+      usageMetadata: usage,
+    };
+
+    server.urls[url].response = {
+      type: 'stream-chunks',
+      headers: { ...headers, 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify(responseBody) + '\n\n'],
     };
   };
 
@@ -397,8 +403,9 @@ describe('doGenerate', () => {
   });
   it('should handle MALFORMED_FUNCTION_CALL finish reason and empty content object', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {},
@@ -416,7 +423,7 @@ describe('doGenerate', () => {
           ],
         },
         modelVersion: 'gemini-2.0-flash-lite',
-      },
+      }) + '\n\n'],
     };
 
     const { content, finishReason } = await model.doGenerate({
@@ -429,8 +436,9 @@ describe('doGenerate', () => {
 
   it('should extract tool calls', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {
@@ -450,7 +458,7 @@ describe('doGenerate', () => {
           },
         ],
         promptFeedback: { safetyRatings: SAFETY_RATINGS },
-      },
+      }) + '\n\n'],
     };
 
     const { content, finishReason } = await model.doGenerate({
@@ -491,12 +499,8 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(response?.headers).toStrictEqual({
-      // default headers:
-      'content-length': '804',
-      'content-type': 'application/json',
-
-      // custom header
+    expect(response?.headers).toMatchObject({
+      'content-type': expect.stringContaining('text/event-stream'),
       'test-header': 'test-value',
     });
   });
@@ -513,7 +517,7 @@ describe('doGenerate', () => {
       temperature: 0.5,
     });
 
-    expect(await server.calls[0].requestBodyJson).toStrictEqual({
+    expect(await getRequestBody(0)).toStrictEqual({
       contents: [
         {
           role: 'user',
@@ -543,7 +547,7 @@ describe('doGenerate', () => {
       },
     });
 
-    expect(await server.calls[0].requestBodyJson).toStrictEqual({
+    expect(await getRequestBody(0)).toStrictEqual({
       contents: [
         {
           role: 'user',
@@ -583,7 +587,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(await server.calls[0].requestBodyJson).toStrictEqual({
+    expect(await getRequestBody(0)).toStrictEqual({
       generationConfig: {},
       contents: [{ role: 'user', parts: [{ text: 'Hello' }] }],
       tools: [
@@ -624,7 +628,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(await server.calls[0].requestBodyJson).toStrictEqual({
+    expect(await getRequestBody(0)).toStrictEqual({
       contents: [
         {
           role: 'user',
@@ -664,7 +668,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(await server.calls[0].requestBodyJson).toStrictEqual({
+    expect(await getRequestBody(0)).toStrictEqual({
       contents: [{ role: 'user', parts: [{ text: 'Hello' }] }],
       generationConfig: {
         responseMimeType: 'application/json',
@@ -704,7 +708,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(await server.calls[0].requestBodyJson).toStrictEqual({
+    expect(await getRequestBody(0)).toStrictEqual({
       contents: [{ role: 'user', parts: [{ text: 'Hello' }] }],
       generationConfig: {
         responseMimeType: 'application/json',
@@ -735,7 +739,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(await server.calls[0].requestBodyJson).toStrictEqual({
+    expect(await getRequestBody(0)).toStrictEqual({
       contents: [{ role: 'user', parts: [{ text: 'Hello' }] }],
       generationConfig: {},
       toolConfig: { functionCallingConfig: { mode: 'ANY' } },
@@ -780,13 +784,13 @@ describe('doGenerate', () => {
     const requestHeaders = server.calls[0].requestHeaders;
 
     expect(requestHeaders).toStrictEqual({
+      'authorization': 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'x-goog-api-key': 'test-api-key',
     });
     expect(server.calls[0].requestUserAgent).toContain(
-      `ai-sdk/google/0.0.0-test`,
+      `ai-sdk/google-cloudassist/0.0.0-test`,
     );
   });
 
@@ -807,7 +811,7 @@ describe('doGenerate', () => {
       },
     });
 
-    expect(await server.calls[0].requestBodyJson).toStrictEqual({
+    expect(await getRequestBody(0)).toStrictEqual({
       contents: [{ role: 'user', parts: [{ text: 'Hello' }] }],
       generationConfig: {
         responseMimeType: 'application/json',
@@ -829,7 +833,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(await server.calls[0].requestBodyJson).toStrictEqual({
+    expect(await getRequestBody(0)).toStrictEqual({
       contents: [{ role: 'user', parts: [{ text: 'Hello' }] }],
       generationConfig: {},
     });
@@ -1161,8 +1165,9 @@ describe('doGenerate', () => {
   describe('async headers handling', () => {
     it('merges async config headers with sync request headers', async () => {
       server.urls[TEST_URL_GEMINI_PRO].response = {
-        type: 'json-value',
-        body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
           candidates: [
             {
               content: {
@@ -1180,12 +1185,12 @@ describe('doGenerate', () => {
             candidatesTokenCount: 2,
             totalTokenCount: 3,
           },
-        },
-      };
+        }) + '\n\n'],
+    };
 
       const model = new GoogleGenerativeAILanguageModel('gemini-pro', {
         provider: 'google.generative-ai',
-        baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+        baseURL: 'https://cloudcode-pa.googleapis.com',
         headers: async () => ({
           'X-Async-Config': 'async-config-value',
           'X-Common': 'config-value',
@@ -1214,8 +1219,9 @@ describe('doGenerate', () => {
 
     it('handles Promise-based headers', async () => {
       server.urls[TEST_URL_GEMINI_PRO].response = {
-        type: 'json-value',
-        body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
           candidates: [
             {
               content: {
@@ -1233,12 +1239,12 @@ describe('doGenerate', () => {
             candidatesTokenCount: 2,
             totalTokenCount: 3,
           },
-        },
-      };
+        }) + '\n\n'],
+    };
 
       const model = new GoogleGenerativeAILanguageModel('gemini-pro', {
         provider: 'google.generative-ai',
-        baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+        baseURL: 'https://cloudcode-pa.googleapis.com',
         headers: async () => ({
           'X-Promise-Header': 'promise-value',
         }),
@@ -1259,7 +1265,7 @@ describe('doGenerate', () => {
       prepareJsonResponse({});
       const model = new GoogleGenerativeAILanguageModel('gemini-pro', {
         provider: 'google.generative-ai',
-        baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+        baseURL: 'https://cloudcode-pa.googleapis.com',
         headers: async () => ({
           'X-Async-Header': 'async-value',
         }),
@@ -1279,8 +1285,9 @@ describe('doGenerate', () => {
 
   it('should expose safety ratings in provider metadata', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {
@@ -1302,7 +1309,7 @@ describe('doGenerate', () => {
           },
         ],
         promptFeedback: { safetyRatings: SAFETY_RATINGS },
-      },
+      }) + '\n\n'],
     };
 
     const { providerMetadata } = await model.doGenerate({
@@ -1323,8 +1330,9 @@ describe('doGenerate', () => {
 
   it('should expose PromptFeedback in provider metadata', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: { parts: [{ text: 'No' }], role: 'model' },
@@ -1337,7 +1345,7 @@ describe('doGenerate', () => {
           blockReason: 'SAFETY',
           safetyRatings: SAFETY_RATINGS,
         },
-      },
+      }) + '\n\n'],
     };
 
     const { providerMetadata } = await model.doGenerate({
@@ -1419,8 +1427,9 @@ describe('doGenerate', () => {
 
   it('should handle code execution tool calls', async () => {
     server.urls[TEST_URL_GEMINI_2_0_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {
@@ -1443,7 +1452,7 @@ describe('doGenerate', () => {
             finishReason: 'STOP',
           },
         ],
-      },
+      }) + '\n\n'],
     };
 
     const model = provider.languageModel('gemini-2.0-pro');
@@ -1454,7 +1463,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    const requestBody = await server.calls[0].requestBodyJson;
+    const requestBody = await getRequestBody(0);
     expect(requestBody.tools).toEqual([{ codeExecution: {} }]);
 
     expect(content).toEqual([
@@ -1502,7 +1511,7 @@ describe('doGenerate', () => {
         ],
       });
 
-      expect(await server.calls[0].requestBodyJson).toMatchObject({
+      expect(await getRequestBody(0)).toMatchObject({
         tools: [{ googleSearch: {} }],
       });
     });
@@ -1525,7 +1534,7 @@ describe('doGenerate', () => {
         ],
       });
 
-      expect(await server.calls[0].requestBodyJson).toMatchObject({
+      expect(await getRequestBody(0)).toMatchObject({
         tools: [{ googleSearch: {} }],
       });
     });
@@ -1548,7 +1557,7 @@ describe('doGenerate', () => {
         ],
       });
 
-      expect(await server.calls[0].requestBodyJson).toMatchObject({
+      expect(await getRequestBody(0)).toMatchObject({
         tools: [{ googleSearchRetrieval: {} }],
       });
     });
@@ -1575,7 +1584,7 @@ describe('doGenerate', () => {
         ],
       });
 
-      expect(await server.calls[0].requestBodyJson).toMatchObject({
+      expect(await getRequestBody(0)).toMatchObject({
         tools: [
           {
             googleSearchRetrieval: {
@@ -1606,7 +1615,7 @@ describe('doGenerate', () => {
         ],
       });
 
-      expect(await server.calls[0].requestBodyJson).toMatchObject({
+      expect(await getRequestBody(0)).toMatchObject({
         tools: [{ urlContext: {} }],
       });
     });
@@ -1632,7 +1641,7 @@ describe('doGenerate', () => {
         ],
       });
 
-      expect(await server.calls[0].requestBodyJson).toMatchObject({
+      expect(await getRequestBody(0)).toMatchObject({
         tools: [
           {
             retrieval: {
@@ -1652,8 +1661,9 @@ describe('doGenerate', () => {
 
   it('should extract image file outputs', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {
@@ -1686,7 +1696,7 @@ describe('doGenerate', () => {
           candidatesTokenCount: 20,
           totalTokenCount: 30,
         },
-      },
+      }) + '\n\n'],
     };
 
     const { content } = await model.doGenerate({
@@ -1721,8 +1731,9 @@ describe('doGenerate', () => {
 
   it('should handle responses with only images and no text', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {
@@ -1753,7 +1764,7 @@ describe('doGenerate', () => {
           candidatesTokenCount: 20,
           totalTokenCount: 30,
         },
-      },
+      }) + '\n\n'],
     };
 
     const { content } = await model.doGenerate({
@@ -1788,7 +1799,7 @@ describe('doGenerate', () => {
       },
     });
 
-    expect(await server.calls[0].requestBodyJson).toMatchObject({
+    expect(await getRequestBody(0)).toMatchObject({
       generationConfig: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
@@ -1807,7 +1818,7 @@ describe('doGenerate', () => {
       },
     });
 
-    expect(await server.calls[0].requestBodyJson).toMatchObject({
+    expect(await getRequestBody(0)).toMatchObject({
       generationConfig: {
         mediaResolution: 'MEDIA_RESOLUTION_LOW',
       },
@@ -1828,7 +1839,7 @@ describe('doGenerate', () => {
       },
     });
 
-    expect(await server.calls[0].requestBodyJson).toMatchObject({
+    expect(await getRequestBody(0)).toMatchObject({
       generationConfig: {
         imageConfig: {
           aspectRatio: '16:9',
@@ -1864,7 +1875,7 @@ describe('doGenerate', () => {
       },
     });
 
-    expect(await server.calls[0].requestBodyJson).toMatchObject({
+    expect(await getRequestBody(0)).toMatchObject({
       tools: [{ googleMaps: {} }],
       toolConfig: {
         retrievalConfig: {
@@ -1879,8 +1890,9 @@ describe('doGenerate', () => {
 
   it('should include non-image inlineData parts', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {
@@ -1907,7 +1919,7 @@ describe('doGenerate', () => {
           },
         ],
         promptFeedback: { safetyRatings: SAFETY_RATINGS },
-      },
+      }) + '\n\n'],
     };
 
     const { content } = await model.doGenerate({
@@ -1936,8 +1948,9 @@ describe('doGenerate', () => {
   });
   it('should correctly parse and separate reasoning parts from text output', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {
@@ -1959,7 +1972,7 @@ describe('doGenerate', () => {
           candidatesTokenCount: 20,
           totalTokenCount: 30,
         },
-      },
+      }) + '\n\n'],
     };
 
     const { content } = await model.doGenerate({
@@ -1994,8 +2007,9 @@ describe('doGenerate', () => {
 
   it('should correctly parse thought signatures with reasoning parts', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {
@@ -2020,7 +2034,7 @@ describe('doGenerate', () => {
           candidatesTokenCount: 20,
           totalTokenCount: 30,
         },
-      },
+      }) + '\n\n'],
     };
 
     const { content } = await model.doGenerate({
@@ -2062,8 +2076,9 @@ describe('doGenerate', () => {
 
   it('should correctly parse thought signatures with function calls', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {
@@ -2088,7 +2103,7 @@ describe('doGenerate', () => {
           candidatesTokenCount: 20,
           totalTokenCount: 30,
         },
-      },
+      }) + '\n\n'],
     };
 
     const { content } = await model.doGenerate({
@@ -2114,8 +2129,9 @@ describe('doGenerate', () => {
 
   it('should support includeThoughts with google generative ai provider', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: {
@@ -2139,7 +2155,7 @@ describe('doGenerate', () => {
           totalTokenCount: 25,
           thoughtsTokenCount: 8,
         },
-      },
+      }) + '\n\n'],
     };
 
     const { content, usage } = await model.doGenerate({
@@ -2198,7 +2214,7 @@ describe('doGenerate', () => {
       },
     });
 
-    expect(await server.calls[0].requestBodyJson).toMatchObject({
+    expect(await getRequestBody(0)).toMatchObject({
       generationConfig: {
         thinkingConfig: {
           thinkingLevel: 'high',
@@ -2210,19 +2226,19 @@ describe('doGenerate', () => {
 
 describe('doStream', () => {
   const TEST_URL_GEMINI_PRO =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const TEST_URL_GEMINI_2_0_PRO =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-pro:streamGenerateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const TEST_URL_GEMINI_2_0_FLASH_EXP =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:streamGenerateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const TEST_URL_GEMINI_1_0_PRO =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:streamGenerateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const TEST_URL_GEMINI_1_5_FLASH =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const server = createTestServer({
     [TEST_URL_GEMINI_PRO]: {},
@@ -2231,13 +2247,17 @@ describe('doStream', () => {
     [TEST_URL_GEMINI_1_0_PRO]: {},
     [TEST_URL_GEMINI_1_5_FLASH]: {},
   });
+  const getRequestBody = async (index = 0) => {
+    const body = await server.calls[index].requestBodyJson;
+    return body?.request ?? body;
+  };
 
   const prepareStreamResponse = ({
     content,
     headers,
     groundingMetadata,
     urlContextMetadata,
-    url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent',
+    url = 'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent',
   }: {
     content: string[];
     headers?: Record<string, string>;
@@ -2638,7 +2658,7 @@ describe('doStream', () => {
         ],
       });
 
-      expect(await server.calls[0].requestBodyJson).toMatchObject({
+      expect(await getRequestBody(0)).toMatchObject({
         tools: [{ googleSearch: {} }],
       });
     });
@@ -2664,7 +2684,7 @@ describe('doStream', () => {
         ],
       });
 
-      expect(await server.calls[0].requestBodyJson).toMatchObject({
+      expect(await getRequestBody(0)).toMatchObject({
         tools: [{ googleSearch: {} }],
       });
     });
@@ -2689,7 +2709,7 @@ describe('doStream', () => {
         ],
       });
 
-      expect(await server.calls[0].requestBodyJson).toMatchObject({
+      expect(await getRequestBody(0)).toMatchObject({
         tools: [{ googleSearchRetrieval: {} }],
       });
     });
@@ -2718,7 +2738,7 @@ describe('doStream', () => {
         ],
       });
 
-      expect(await server.calls[0].requestBodyJson).toMatchObject({
+      expect(await getRequestBody(0)).toMatchObject({
         tools: [
           {
             googleSearchRetrieval: {
@@ -3159,7 +3179,7 @@ describe('doStream', () => {
       },
     });
 
-    expect(await server.calls[0].requestBodyJson).toMatchObject({
+    expect(await getRequestBody(0)).toMatchObject({
       contents: [
         {
           role: 'user',
@@ -3609,24 +3629,29 @@ describe('GEMMA Model System Instruction Fix', () => {
   ];
 
   const TEST_URL_GEMMA_3_12B_IT =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemma-3-12b-it:generateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const TEST_URL_GEMMA_3_27B_IT =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const TEST_URL_GEMINI_PRO =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+    'https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent';
 
   const server = createTestServer({
     [TEST_URL_GEMMA_3_12B_IT]: {},
     [TEST_URL_GEMMA_3_27B_IT]: {},
     [TEST_URL_GEMINI_PRO]: {},
   });
+  const getRequestBody = async (index = 0) => {
+    const body = await server.calls[index].requestBodyJson;
+    return body?.request ?? body;
+  };
 
   it('should NOT send systemInstruction for GEMMA-3-12b-it model', async () => {
     server.urls[TEST_URL_GEMMA_3_12B_IT].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: { parts: [{ text: 'Hello!' }], role: 'model' },
@@ -3634,12 +3659,12 @@ describe('GEMMA Model System Instruction Fix', () => {
             index: 0,
           },
         ],
-      },
+      }) + '\n\n'],
     };
 
     const model = new GoogleGenerativeAILanguageModel('gemma-3-12b-it', {
       provider: 'google.generative-ai',
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+      baseURL: 'https://cloudcode-pa.googleapis.com',
       headers: { 'x-goog-api-key': 'test-api-key' },
       generateId: () => 'test-id',
     });
@@ -3649,16 +3674,16 @@ describe('GEMMA Model System Instruction Fix', () => {
     });
 
     // Verify that systemInstruction was NOT sent for GEMMA model
-    const lastCall = server.calls[server.calls.length - 1];
-    const requestBody = await lastCall.requestBodyJson;
+    const requestBody = await getRequestBody(server.calls.length - 1);
 
     expect(requestBody).not.toHaveProperty('systemInstruction');
   });
 
   it('should NOT send systemInstruction for GEMMA-3-27b-it model', async () => {
     server.urls[TEST_URL_GEMMA_3_27B_IT].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: { parts: [{ text: 'Hello!' }], role: 'model' },
@@ -3666,12 +3691,12 @@ describe('GEMMA Model System Instruction Fix', () => {
             index: 0,
           },
         ],
-      },
+      }) + '\n\n'],
     };
 
     const model = new GoogleGenerativeAILanguageModel('gemma-3-27b-it', {
       provider: 'google.generative-ai',
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+      baseURL: 'https://cloudcode-pa.googleapis.com',
       headers: { 'x-goog-api-key': 'test-api-key' },
       generateId: () => 'test-id',
     });
@@ -3680,16 +3705,16 @@ describe('GEMMA Model System Instruction Fix', () => {
       prompt: TEST_PROMPT_WITH_SYSTEM,
     });
 
-    const lastCall = server.calls[server.calls.length - 1];
-    const requestBody = await lastCall.requestBodyJson;
+    const requestBody = await getRequestBody(server.calls.length - 1);
 
     expect(requestBody).not.toHaveProperty('systemInstruction');
   });
 
   it('should still send systemInstruction for Gemini models (regression test)', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: { parts: [{ text: 'Hello!' }], role: 'model' },
@@ -3697,12 +3722,12 @@ describe('GEMMA Model System Instruction Fix', () => {
             index: 0,
           },
         ],
-      },
+      }) + '\n\n'],
     };
 
     const model = new GoogleGenerativeAILanguageModel('gemini-pro', {
       provider: 'google.generative-ai',
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+      baseURL: 'https://cloudcode-pa.googleapis.com',
       headers: { 'x-goog-api-key': 'test-api-key' },
       generateId: () => 'test-id',
     });
@@ -3711,8 +3736,7 @@ describe('GEMMA Model System Instruction Fix', () => {
       prompt: TEST_PROMPT_WITH_SYSTEM,
     });
 
-    const lastCall = server.calls[server.calls.length - 1];
-    const requestBody = await lastCall.requestBodyJson;
+    const requestBody = await getRequestBody(server.calls.length - 1);
 
     expect(requestBody).toHaveProperty('systemInstruction');
     expect(requestBody.systemInstruction).toEqual({
@@ -3722,8 +3746,9 @@ describe('GEMMA Model System Instruction Fix', () => {
 
   it('should NOT generate warning when GEMMA model is used without system instructions', async () => {
     server.urls[TEST_URL_GEMMA_3_12B_IT].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: { parts: [{ text: 'Hello!' }], role: 'model' },
@@ -3731,12 +3756,12 @@ describe('GEMMA Model System Instruction Fix', () => {
             index: 0,
           },
         ],
-      },
+      }) + '\n\n'],
     };
 
     const model = new GoogleGenerativeAILanguageModel('gemma-3-12b-it', {
       provider: 'google.generative-ai',
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+      baseURL: 'https://cloudcode-pa.googleapis.com',
       headers: { 'x-goog-api-key': 'test-api-key' },
       generateId: () => 'test-id',
     });
@@ -3754,8 +3779,9 @@ describe('GEMMA Model System Instruction Fix', () => {
 
   it('should NOT generate warning when Gemini model is used with system instructions', async () => {
     server.urls[TEST_URL_GEMINI_PRO].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: { parts: [{ text: 'Hello!' }], role: 'model' },
@@ -3763,12 +3789,12 @@ describe('GEMMA Model System Instruction Fix', () => {
             index: 0,
           },
         ],
-      },
+      }) + '\n\n'],
     };
 
     const model = new GoogleGenerativeAILanguageModel('gemini-pro', {
       provider: 'google.generative-ai',
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+      baseURL: 'https://cloudcode-pa.googleapis.com',
       headers: { 'x-goog-api-key': 'test-api-key' },
       generateId: () => 'test-id',
     });
@@ -3782,8 +3808,9 @@ describe('GEMMA Model System Instruction Fix', () => {
 
   it('should prepend system instruction to first user message for GEMMA models', async () => {
     server.urls[TEST_URL_GEMMA_3_12B_IT].response = {
-      type: 'json-value',
-      body: {
+      type: 'stream-chunks',
+      headers: { 'content-type': 'text/event-stream' },
+      chunks: ['data: ' + JSON.stringify({
         candidates: [
           {
             content: { parts: [{ text: 'Hello!' }], role: 'model' },
@@ -3791,12 +3818,12 @@ describe('GEMMA Model System Instruction Fix', () => {
             index: 0,
           },
         ],
-      },
+      }) + '\n\n'],
     };
 
     const model = new GoogleGenerativeAILanguageModel('gemma-3-12b-it', {
       provider: 'google.generative-ai',
-      baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+      baseURL: 'https://cloudcode-pa.googleapis.com',
       headers: { 'x-goog-api-key': 'test-api-key' },
       generateId: () => 'test-id',
     });
@@ -3805,8 +3832,7 @@ describe('GEMMA Model System Instruction Fix', () => {
       prompt: TEST_PROMPT_WITH_SYSTEM,
     });
 
-    const lastCall = server.calls[server.calls.length - 1];
-    const requestBody = await lastCall.requestBodyJson;
+    const requestBody = await getRequestBody(server.calls.length - 1);
 
     expect(requestBody).toMatchInlineSnapshot(`
       {

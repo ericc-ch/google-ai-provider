@@ -17,11 +17,12 @@ const testValues = ['sunny day at the beach', 'rainy day in the city'];
 const provider = createGoogleGenerativeAI({ apiKey: 'test-api-key' });
 const model = provider.textEmbeddingModel('gemini-embedding-001');
 
-const URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:something';
+const BATCH_URL = 'https://cloudcode-pa.googleapis.com/models/gemini-embedding-001\\:batchEmbedContents';
+const SINGLE_URL = 'https://cloudcode-pa.googleapis.com/models/gemini-embedding-001\\:embedContent';
 
 const server = createTestServer({
-  [URL]: {},
+  [SINGLE_URL]: {},
+  [BATCH_URL]: {},
 });
 
 describe('GoogleGenerativeAIEmbeddingModel', () => {
@@ -32,7 +33,7 @@ describe('GoogleGenerativeAIEmbeddingModel', () => {
     embeddings?: EmbeddingModelV2Embedding[];
     headers?: Record<string, string>;
   } = {}) {
-    server.urls[URL].response = {
+    server.urls[BATCH_URL].response = {
       type: 'json-value',
       headers,
       body: {
@@ -48,7 +49,7 @@ describe('GoogleGenerativeAIEmbeddingModel', () => {
     embeddings?: EmbeddingModelV2Embedding[];
     headers?: Record<string, string>;
   } = {}) {
-    server.urls[URL].response = {
+    server.urls[SINGLE_URL].response = {
       type: 'json-value',
       headers,
       body: {
@@ -152,13 +153,13 @@ describe('GoogleGenerativeAIEmbeddingModel', () => {
     });
 
     expect(server.calls[0].requestHeaders).toStrictEqual({
-      'x-goog-api-key': 'test-api-key',
+      'authorization': 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
     expect(server.calls[0].requestUserAgent).toContain(
-      `ai-sdk/google/0.0.0-test`,
+      `ai-sdk/google-cloudassist/0.0.0-test`,
     );
   });
 
@@ -184,7 +185,7 @@ describe('GoogleGenerativeAIEmbeddingModel', () => {
     });
 
     expect(server.calls[0].requestUrl).toBe(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents',
+      'https://cloudcode-pa.googleapis.com/models/gemini-embedding-001:batchEmbedContents',
     );
   });
 
@@ -198,7 +199,7 @@ describe('GoogleGenerativeAIEmbeddingModel', () => {
     });
 
     expect(server.calls[0].requestUrl).toBe(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent',
+      'https://cloudcode-pa.googleapis.com/models/gemini-embedding-001:embedContent',
     );
   });
 });
