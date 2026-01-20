@@ -42,7 +42,7 @@ describe('google-provider', () => {
     expect(GoogleGenerativeAILanguageModel).toHaveBeenCalledWith(
       'gemini-pro',
       expect.objectContaining({
-        provider: 'google.generative-ai',
+        provider: 'cloudassist',
         baseURL: 'https://cloudcode-pa.googleapis.com',
         headers: expect.any(Function),
         generateId: expect.any(Function),
@@ -68,7 +68,7 @@ describe('google-provider', () => {
     expect(GoogleGenerativeAIEmbeddingModel).toHaveBeenCalledWith(
       'embedding-001',
       expect.objectContaining({
-        provider: 'google.generative-ai',
+        provider: 'cloudassist',
         headers: expect.any(Function),
         baseURL: 'https://cloudcode-pa.googleapis.com',
       }),
@@ -153,7 +153,7 @@ describe('google-provider', () => {
       'imagen-3.0-generate-002',
       {},
       expect.objectContaining({
-        provider: 'google.generative-ai',
+        provider: 'cloudassist',
         headers: expect.any(Function),
         baseURL: 'https://cloudcode-pa.googleapis.com',
       }),
@@ -173,7 +173,7 @@ describe('google-provider', () => {
       'imagen-3.0-generate-002',
       imageSettings,
       expect.objectContaining({
-        provider: 'google.generative-ai',
+        provider: 'cloudassist',
         headers: expect.any(Function),
         baseURL: 'https://cloudcode-pa.googleapis.com',
       }),
@@ -290,7 +290,7 @@ describe('google provider - custom provider name', () => {
     );
   });
 
-  it('should default to google.generative-ai when name not specified', () => {
+  it('should default to cloudassist when name not specified', () => {
     const provider = createGoogleGenerativeAI({
       apiKey: 'test-api-key',
     });
@@ -300,7 +300,7 @@ describe('google provider - custom provider name', () => {
     expect(GoogleGenerativeAILanguageModel).toHaveBeenCalledWith(
       'gemini-pro',
       expect.objectContaining({
-        provider: 'google.generative-ai',
+        provider: 'cloudassist',
       }),
     );
   });

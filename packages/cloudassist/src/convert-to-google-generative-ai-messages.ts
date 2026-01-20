@@ -12,7 +12,11 @@ import { isClaudeModel } from './google-prepare-tools';
 
 export function convertToGoogleGenerativeAIMessages(
   prompt: LanguageModelV2Prompt,
-  options?: { isGemmaModel?: boolean; modelId?: string },
+  options?: {
+    isGemmaModel?: boolean;
+    modelId?: string;
+    providerKey?: string;
+  },
 ): GoogleGenerativeAIPrompt {
   const systemInstructionParts: Array<{ text: string }> = [];
   const contents: Array<GoogleGenerativeAIContent> = [];
@@ -20,6 +24,7 @@ export function convertToGoogleGenerativeAIMessages(
   const isGemmaModel = options?.isGemmaModel ?? false;
   const modelId = options?.modelId ?? '';
   const includeToolCallId = isClaudeModel(modelId);
+  const providerKey = options?.providerKey ?? 'google';
 
   for (const { role, content } of prompt) {
     switch (role) {
@@ -85,8 +90,8 @@ export function convertToGoogleGenerativeAIMessages(
           parts: content
             .map(part => {
               const thoughtSignature =
-                part.providerOptions?.google?.thoughtSignature != null
-                  ? String(part.providerOptions.google?.thoughtSignature)
+                part.providerOptions?.[providerKey]?.thoughtSignature != null
+                  ? String(part.providerOptions[providerKey]?.thoughtSignature)
                   : undefined;
 
               switch (part.type) {

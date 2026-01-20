@@ -16,6 +16,7 @@ import {
   GoogleGenerativeAIImageSettings,
 } from './google-generative-ai-image-settings';
 import { FetchFunction, Resolvable } from '@ai-sdk/provider-utils';
+import { getProviderKey } from './provider-key';
 
 interface GoogleGenerativeAIImageModelConfig {
   provider: string;
@@ -79,8 +80,9 @@ export class GoogleGenerativeAIImageModel implements ImageModelV2 {
       });
     }
 
+    const providerKey = getProviderKey(providerOptions);
     const googleOptions = await parseProviderOptions({
-      provider: 'google',
+      provider: providerKey ?? 'google',
       providerOptions,
       schema: googleImageProviderOptionsSchema,
     });
@@ -123,7 +125,7 @@ export class GoogleGenerativeAIImageModel implements ImageModelV2 {
       ),
       warnings: warnings ?? [],
       providerMetadata: {
-        google: {
+        [providerKey ?? 'google']: {
           images: response.predictions.map(prediction => ({
             // Add any prediction-specific metadata here
           })),

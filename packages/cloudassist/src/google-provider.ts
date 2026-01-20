@@ -108,7 +108,7 @@ export function createGoogleGenerativeAI(
     withoutTrailingSlash(options.baseURL) ??
     'https://cloudcode-pa.googleapis.com';
 
-  const providerName = options.name ?? 'google.generative-ai';
+  const providerName = options.name ?? 'cloudassist';
 
   const getHeaders = () =>
     withUserAgentSuffix(

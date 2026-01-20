@@ -35,6 +35,7 @@ import {
 } from './google-generative-ai-options';
 import { prepareTools, isClaudeModel } from './google-prepare-tools';
 import { mapGoogleGenerativeAIFinishReason } from './map-google-generative-ai-finish-reason';
+import { getProviderKey } from './provider-key';
 
 type GoogleGenerativeAIConfig = {
   provider: string;
@@ -91,8 +92,9 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
   }: Parameters<LanguageModelV2['doGenerate']>[0]) {
     const warnings: LanguageModelV2CallWarning[] = [];
 
+    const providerKey = getProviderKey(providerOptions);
     const googleOptions = await parseProviderOptions({
-      provider: 'google',
+      provider: providerKey ?? 'google',
       providerOptions,
       schema: googleGenerativeAIProviderOptions,
     });
@@ -119,7 +121,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
 
     const { contents, systemInstruction } = convertToGoogleGenerativeAIMessages(
       prompt,
-      { isGemmaModel, modelId: this.modelId },
+      { isGemmaModel, modelId: this.modelId, providerKey },
     );
 
     const {
@@ -194,13 +196,15 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
         userAgent: googleOptions?.userAgent,
         requestId: googleOptions?.requestId,
       },
+      providerKey,
     };
   }
 
   async doGenerate(
     options: Parameters<LanguageModelV2['doGenerate']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
-    const { args, warnings, cloudAssistOptions } = await this.getArgs(options);
+    const { args, warnings, cloudAssistOptions, providerKey } =
+      await this.getArgs(options);
 
     // Wrap request for Cloud Assist API
     const wrappedRequest = {
@@ -307,7 +311,11 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                 type: 'text',
                 text: currentTextContent,
                 providerMetadata: currentTextThoughtSignature
-                  ? { google: { thoughtSignature: currentTextThoughtSignature } }
+                  ? {
+                      [providerKey ?? 'google']: {
+                        thoughtSignature: currentTextThoughtSignature,
+                      },
+                    }
                   : undefined,
               });
               currentTextContent = '';
@@ -319,7 +327,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                 text: currentReasoningContent,
                 providerMetadata: currentReasoningThoughtSignature
                   ? {
-                      google: {
+                      [providerKey ?? 'google']: {
                         thoughtSignature: currentReasoningThoughtSignature,
                       },
                     }
@@ -364,7 +372,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                   text: currentTextContent,
                   providerMetadata: currentTextThoughtSignature
                     ? {
-                        google: {
+                        [providerKey ?? 'google']: {
                           thoughtSignature: currentTextThoughtSignature,
                         },
                       }
@@ -386,7 +394,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                   text: currentReasoningContent,
                   providerMetadata: currentReasoningThoughtSignature
                     ? {
-                        google: {
+                        [providerKey ?? 'google']: {
                           thoughtSignature: currentReasoningThoughtSignature,
                         },
                       }
@@ -408,7 +416,11 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                 type: 'text',
                 text: currentTextContent,
                 providerMetadata: currentTextThoughtSignature
-                  ? { google: { thoughtSignature: currentTextThoughtSignature } }
+                  ? {
+                      [providerKey ?? 'google']: {
+                        thoughtSignature: currentTextThoughtSignature,
+                      },
+                    }
                   : undefined,
               });
               currentTextContent = '';
@@ -420,7 +432,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                 text: currentReasoningContent,
                 providerMetadata: currentReasoningThoughtSignature
                   ? {
-                      google: {
+                      [providerKey ?? 'google']: {
                         thoughtSignature: currentReasoningThoughtSignature,
                       },
                     }
@@ -442,7 +454,11 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
               toolName: part.functionCall.name,
               input: JSON.stringify(part.functionCall.args),
               providerMetadata: part.thoughtSignature
-                ? { google: { thoughtSignature: part.thoughtSignature } }
+                ? {
+                    [providerKey ?? 'google']: {
+                      thoughtSignature: part.thoughtSignature,
+                    },
+                  }
                 : undefined,
             });
           } else if ('inlineData' in part) {
@@ -452,7 +468,11 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                 type: 'text',
                 text: currentTextContent,
                 providerMetadata: currentTextThoughtSignature
-                  ? { google: { thoughtSignature: currentTextThoughtSignature } }
+                  ? {
+                      [providerKey ?? 'google']: {
+                        thoughtSignature: currentTextThoughtSignature,
+                      },
+                    }
                   : undefined,
               });
               currentTextContent = '';
@@ -464,7 +484,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                 text: currentReasoningContent,
                 providerMetadata: currentReasoningThoughtSignature
                   ? {
-                      google: {
+                      [providerKey ?? 'google']: {
                         thoughtSignature: currentReasoningThoughtSignature,
                       },
                     }
@@ -499,7 +519,11 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
         type: 'text',
         text: currentTextContent,
         providerMetadata: currentTextThoughtSignature
-          ? { google: { thoughtSignature: currentTextThoughtSignature } }
+          ? {
+              [providerKey ?? 'google']: {
+                thoughtSignature: currentTextThoughtSignature,
+              },
+            }
           : undefined,
       });
     }
@@ -508,7 +532,11 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
         type: 'reasoning',
         text: currentReasoningContent,
         providerMetadata: currentReasoningThoughtSignature
-          ? { google: { thoughtSignature: currentReasoningThoughtSignature } }
+          ? {
+              [providerKey ?? 'google']: {
+                thoughtSignature: currentReasoningThoughtSignature,
+              },
+            }
           : undefined,
       });
     }
@@ -535,7 +563,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
       },
       warnings,
       providerMetadata: {
-        google: {
+        [providerKey ?? 'google']: {
           promptFeedback: promptFeedback ?? null,
           groundingMetadata: groundingMetadata ?? null,
           urlContextMetadata: urlContextMetadata ?? null,
@@ -553,7 +581,8 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
   async doStream(
     options: Parameters<LanguageModelV2['doStream']>[0],
   ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
-    const { args, warnings, cloudAssistOptions } = await this.getArgs(options);
+    const { args, warnings, cloudAssistOptions, providerKey } =
+      await this.getArgs(options);
 
     // Wrap request for Cloud Assist API
     const wrappedRequest = {
@@ -732,7 +761,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                         id: currentReasoningBlockId,
                         providerMetadata: part.thoughtSignature
                           ? {
-                              google: {
+                              [providerKey ?? 'google']: {
                                 thoughtSignature: part.thoughtSignature,
                               },
                             }
@@ -746,7 +775,9 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                       delta: part.text,
                       providerMetadata: part.thoughtSignature
                         ? {
-                            google: { thoughtSignature: part.thoughtSignature },
+                            [providerKey ?? 'google']: {
+                              thoughtSignature: part.thoughtSignature,
+                            },
                           }
                         : undefined,
                     });
@@ -768,7 +799,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                         id: currentTextBlockId,
                         providerMetadata: part.thoughtSignature
                           ? {
-                              google: {
+                              [providerKey ?? 'google']: {
                                 thoughtSignature: part.thoughtSignature,
                               },
                             }
@@ -782,7 +813,9 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                       delta: part.text,
                       providerMetadata: part.thoughtSignature
                         ? {
-                            google: { thoughtSignature: part.thoughtSignature },
+                            [providerKey ?? 'google']: {
+                              thoughtSignature: part.thoughtSignature,
+                            },
                           }
                         : undefined,
                     });
@@ -801,6 +834,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                 parts: content.parts,
                 generateId,
                 useToolCallId,
+                providerKey,
               });
 
               if (toolCallDeltas != null) {
@@ -845,7 +879,7 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
               });
 
               providerMetadata = {
-                google: {
+                [providerKey ?? 'google']: {
                   promptFeedback: responseData.promptFeedback ?? null,
                   groundingMetadata: candidate.groundingMetadata ?? null,
                   urlContextMetadata: candidate.urlContextMetadata ?? null,
@@ -853,7 +887,8 @@ export class GoogleGenerativeAILanguageModel implements LanguageModelV2 {
                 },
               };
               if (usageMetadata != null) {
-                providerMetadata.google.usageMetadata = usageMetadata;
+                providerMetadata[providerKey ?? 'google'].usageMetadata =
+                  usageMetadata;
               }
             }
           },
@@ -892,10 +927,12 @@ function getToolCallsFromParts({
   parts,
   generateId,
   useToolCallId = false,
+  providerKey,
 }: {
   parts: ContentSchema['parts'];
   generateId: () => string;
   useToolCallId?: boolean;
+  providerKey: string | undefined;
 }) {
   const functionCallParts = parts?.filter(
     part => 'functionCall' in part,
@@ -918,7 +955,11 @@ function getToolCallsFromParts({
         toolName: part.functionCall.name,
         args: JSON.stringify(part.functionCall.args),
         providerMetadata: part.thoughtSignature
-          ? { google: { thoughtSignature: part.thoughtSignature } }
+          ? {
+              [providerKey ?? 'google']: {
+                thoughtSignature: part.thoughtSignature,
+              },
+            }
           : undefined,
       }));
 }

@@ -18,6 +18,7 @@ import {
   GoogleGenerativeAIEmbeddingModelId,
   googleGenerativeAIEmbeddingProviderOptions,
 } from './google-generative-ai-embedding-options';
+import { getProviderKey } from './provider-key';
 
 type GoogleGenerativeAIEmbeddingConfig = {
   provider: string;
@@ -56,8 +57,9 @@ export class GoogleGenerativeAIEmbeddingModel
     Awaited<ReturnType<EmbeddingModelV2<string>['doEmbed']>>
   > {
     // Parse provider options
+    const providerKey = getProviderKey(providerOptions);
     const googleOptions = await parseProviderOptions({
-      provider: 'google',
+      provider: providerKey ?? 'google',
       providerOptions,
       schema: googleGenerativeAIEmbeddingProviderOptions,
     });
