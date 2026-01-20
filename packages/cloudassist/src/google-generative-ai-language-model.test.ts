@@ -300,10 +300,6 @@ describe('doGenerate', () => {
 
   const server = createTestServer({
     [TEST_URL_GEMINI_PRO]: {},
-    [TEST_URL_GEMINI_2_0_PRO]: {},
-    [TEST_URL_GEMINI_2_0_FLASH_EXP]: {},
-    [TEST_URL_GEMINI_1_0_PRO]: {},
-    [TEST_URL_GEMINI_1_5_FLASH]: {},
   });
   const getRequestBody = async (index = 0) => {
     const body = await server.calls[index].requestBodyJson;
@@ -2242,10 +2238,6 @@ describe('doStream', () => {
 
   const server = createTestServer({
     [TEST_URL_GEMINI_PRO]: {},
-    [TEST_URL_GEMINI_2_0_PRO]: {},
-    [TEST_URL_GEMINI_2_0_FLASH_EXP]: {},
-    [TEST_URL_GEMINI_1_0_PRO]: {},
-    [TEST_URL_GEMINI_1_5_FLASH]: {},
   });
   const getRequestBody = async (index = 0) => {
     const body = await server.calls[index].requestBodyJson;
@@ -3639,8 +3631,6 @@ describe('GEMMA Model System Instruction Fix', () => {
 
   const server = createTestServer({
     [TEST_URL_GEMMA_3_12B_IT]: {},
-    [TEST_URL_GEMMA_3_27B_IT]: {},
-    [TEST_URL_GEMINI_PRO]: {},
   });
   const getRequestBody = async (index = 0) => {
     const body = await server.calls[index].requestBodyJson;
