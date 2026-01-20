@@ -16,6 +16,11 @@ export const repos = [
     remote: 'https://github.com/sst/opencode.git',
     branch: 'dev',
   },
+  {
+    name: 'pi-mono',
+    remote: 'https://github.com/badlogic/pi-mono',
+    branch: 'main',
+  },
 ];
 
 const operations = repos.map(async repo => {
